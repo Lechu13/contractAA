@@ -3,12 +3,13 @@ import * as ethers from "ethers";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 
 // Put the address of your AA factory
-const AA_FACTORY_ADDRESS = "0x89bB54D79693cB08ca336986D8a231f8fBF3c7e9";
+const AA_FACTORY_ADDRESS = "0x50BFb217F72A4e00a65040d64120002C7798A393";
 
 export default async function (hre: HardhatRuntimeEnvironment) {
-  const provider = new Provider("https://testnet.era.zksync.dev");
+  // const provider = new Provider("http://localhost:3050/");
+  const provider = new Provider("https://zksync2-testnet.zksync.dev");
   // Private key of the account used to deploy
-  const wallet = new Wallet("e1e76bdf4099bce1851c780f1725fa8f40ce0b23bcedc896a02b3ad3aae97a37").connect(provider);
+  const wallet = new Wallet("").connect(provider);
   const factoryArtifact = await hre.artifacts.readArtifact("AAFactory");
 
   const aaFactory = new ethers.Contract(
