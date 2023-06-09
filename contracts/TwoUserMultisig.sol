@@ -13,10 +13,13 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@matterlabs/zksync-contracts/l2/system-contracts/Constants.sol";
 // to call non-view method of system contracts
 import "@matterlabs/zksync-contracts/l2/system-contracts/libraries/SystemContractsCaller.sol";
+import { SignatureChecker } from "@matterlabs/signature-checker/contracts/SignatureChecker.sol";
+import "hardhat/console.sol";
 
-contract TwoUserMultisig is IAccount, IERC1271 {
+contract TwoUserMultisig is IAccount {
     // to get transaction hash
     using TransactionHelper for Transaction;
+    using SignatureChecker for address;
 
     // state variables for account owners
     address public owner1;
@@ -73,7 +76,8 @@ contract TwoUserMultisig is IAccount, IERC1271 {
         uint256 totalRequiredBalance = _transaction.totalRequiredBalance();
         require(totalRequiredBalance <= address(this).balance, "Not enough balance for fee + value");
 
-        if (isValidSignature(txHash, _transaction.signature) == EIP1271_SUCCESS_RETURN_VALUE) {
+        if (isValidSignature(address(this), txHash, _transaction.signature)) {
+            console.log("Signature is valid!");
             magic = ACCOUNT_VALIDATION_SUCCESS_MAGIC;
         }
     }
@@ -114,13 +118,14 @@ contract TwoUserMultisig is IAccount, IERC1271 {
         _executeTransaction(_transaction);
     }
 
-    function isValidSignature(bytes32 _hash, bytes memory _signature)
+    function isValidSignature(address _address, bytes32 _hash, bytes memory _signature)
         public
         view
-        override
-        returns (bytes4 magic)
+        returns (bool)
     {
-        magic = EIP1271_SUCCESS_RETURN_VALUE;
+        return _address.isValidSignatureNow(_hash, _signature);
+
+        // magic = EIP1271_SUCCESS_RETURN_VALUE;
 
         // if (_signature.length != 130) {
         //     // Signature is invalid anyway, but we need to proceed with the signature verification as usual
@@ -133,42 +138,43 @@ contract TwoUserMultisig is IAccount, IERC1271 {
         //     _signature[129] = bytes1(uint8(27));
         // }
 
-    bytes memory signature1 = extractECDSASignature(_signature);
+        // bytes memory signature1 = extractECDSASignature(_signature);
 
-        if(checkValidECDSASignatureFormat(signature1)) {
-            magic = bytes4(0);
-        }
+        // if(checkValidECDSASignatureFormat(signature1)) {
+        //     magic = bytes4(0);
+        // }
 
-        address recoveredAddr1 = ECDSA.recover(_hash, signature1);
-        // address recoveredAddr2 = ECDSA.recover(_hash, signature2);
+        // address recoveredAddr1 = ECDSA.recover(_hash, signature1);
+        // // address recoveredAddr2 = ECDSA.recover(_hash, signature2);
 
-        // Note, that we should abstain from using the require here in order to allow for fee estimation to work
-        if(recoveredAddr1 != owner1) {
-            magic = bytes4(0);
-        }
+        // // Note, that we should abstain from using the require here in order to allow for fee estimation to work
+        // if(recoveredAddr1 != owner1) {
+        //     magic = bytes4(0);
+        // }
     }
 
     // This function verifies that the ECDSA signature is both in correct format and non-malleable
-    function checkValidECDSASignatureFormat(bytes memory _signature) internal pure returns (bool) {
-        if(_signature.length != 65) {
-            return false;
-        }
+    // function checkValidECDSASignatureFormat(bytes memory _signature) internal pure returns (bool) {
+    //     if(_signature.length != 65) {
+    //         return false;
+    //     }
 
-        uint8 v;
-		bytes32 r;
-		bytes32 s;
+    //     uint8 v;
+	// 	bytes32 r;
+	// 	bytes32 s;
 		// Signature loading code
 		// we jump 32 (0x20) as the first slot of bytes contains the length
 		// we jump 65 (0x41) per signature
 		// for v we load 32 bytes ending with v (the first 31 come from s) then apply a mask
-		assembly {
-			r := mload(add(_signature, 0x20))
-			s := mload(add(_signature, 0x40))
-			v := and(mload(add(_signature, 0x41)), 0xff)
-		}
-		if(v != 27 && v != 28) {
-            return false;
-        }
+		// assembly {
+		// 	r := mload(add(_signature, 0x20))
+		// 	s := mload(add(_signature, 0x40))
+		// 	v := and(mload(add(_signature, 0x41)), 0xff)
+		// }
+
+		// if(v != 27 && v != 28) {
+        //     return false;
+        // }
 
 		// EIP-2 still allows signature malleability for ecrecover(). Remove this possibility and make the signature
         // unique. Appendix F in the Ethereum Yellow paper (https://ethereum.github.io/yellowpaper/paper.pdf), defines
@@ -179,32 +185,32 @@ contract TwoUserMultisig is IAccount, IERC1271 {
         // with 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141 - s1 and flip v from 27 to 28 or
         // vice versa. If your library also generates signatures with 0/1 for v instead 27/28, add 27 to v to accept
         // these malleable signatures as well.
-        if(uint256(s) > 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0) {
-            return false;
-        }
+    //     if(uint256(s) > 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0) {
+    //         return false;
+    //     }
 
-        return true;
-    }
+    //     return true;
+    // }
     
-    function extractECDSASignature(bytes memory _signature)
-        internal
-        pure
-        returns (bytes memory signature)
-    {
-        require(_signature.length == 65, "Invalid length");
+    // function extractECDSASignature(bytes memory _signature)
+    //     internal
+    //     pure
+    //     returns (bytes memory signature)
+    // {
+    //     require(_signature.length == 65, "Invalid length");
 
-        signature = new bytes(65);
+    //     signature = new bytes(65);
 
-        assembly {
-            let r := mload(add(_signature, 0x20))
-            let s := mload(add(_signature, 0x40))
-            let v := and(mload(add(_signature, 0x41)), 0xff)
+    //     assembly {
+    //         let r := mload(add(_signature, 0x20))
+    //         let s := mload(add(_signature, 0x40))
+    //         let v := and(mload(add(_signature, 0x41)), 0xff)
 
-            mstore(add(signature, 0x20), r)
-            mstore(add(signature, 0x40), s)
-            mstore8(add(signature, 0x60), v)
-        }
-    }
+    //         mstore(add(signature, 0x20), r)
+    //         mstore(add(signature, 0x40), s)
+    //         mstore8(add(signature, 0x60), v)
+    //     }
+    // }
 
     function payForTransaction(
         bytes32,

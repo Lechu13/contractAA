@@ -21,6 +21,12 @@ const config: HardhatUserConfig = {
       ethNetwork: "goerli", // Can also be the RPC URL of the network (e.g. `https://goerli.infura.io/v3/<API_KEY>`)
       zksync: true,
     },
+    zkSyncLocal: {
+      url: "http://localhost:3050/",
+      // ethNetwork: "goerli", // Can also be the RPC URL of the network (e.g. `https://goerli.infura.io/v3/<API_KEY>`)
+      zksync: true,
+      chainId: 270,
+    },
   },
   solidity: {
     version: "0.8.16",

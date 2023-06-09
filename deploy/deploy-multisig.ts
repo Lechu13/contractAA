@@ -3,7 +3,7 @@ import * as ethers from "ethers";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 
 // Put the address of your AA factory
-const AA_FACTORY_ADDRESS = "0x949Ee9e704b90790a5D76DfBe39e7a14918e7E5D";
+const AA_FACTORY_ADDRESS = "0x89bB54D79693cB08ca336986D8a231f8fBF3c7e9";
 
 export default async function (hre: HardhatRuntimeEnvironment) {
   const provider = new Provider("https://testnet.era.zksync.dev");
@@ -52,9 +52,9 @@ export default async function (hre: HardhatRuntimeEnvironment) {
   //   })
   // ).wait();
 
-  let multisigBalance = await provider.getBalance(multisigAddress);
+  // let multisigBalance = await provider.getBalance(multisigAddress);
 
-  console.log(`Multisig account balance is ${multisigBalance.toString()}`);
+  // console.log(`Multisig account balance is ${multisigBalance.toString()}`);
 
   // Transaction to deploy a new account using the multisig we just deployed
   let aaTx = await aaFactory.populateTransaction.deployAccount(
@@ -62,8 +62,6 @@ export default async function (hre: HardhatRuntimeEnvironment) {
     // These are accounts that will own the newly deployed account
     Wallet.createRandom().address
   );
-
-  
 
   const gasLimit = await provider.estimateGas(aaTx);
   const gasPrice = await provider.getGasPrice();
@@ -97,11 +95,37 @@ export default async function (hre: HardhatRuntimeEnvironment) {
     customSignature: ethers.utils.arrayify(ethers.utils.joinSignature(owner1._signingKey().signDigest(signedTxHash)))
   };
 
+  const aaTx2 = {
+    ...aaTx,
+    // deploy a new account using the multisig
+    from: wallet.address,
+    to: multisigAddress,
+    gasLimit: gasLimit,
+    gasPrice: gasPrice,
+    chainId: (await provider.getNetwork()).chainId,
+    nonce: await provider.getTransactionCount(multisigAddress),
+    type: 113,
+    customData: {
+      gasPerPubdata: utils.DEFAULT_GAS_PER_PUBDATA_LIMIT,
+    } as types.Eip712Meta,
+    value: ethers.BigNumber.from(0),
+  };
+
   console.log(
     `The multisig's nonce before the first tx is ${await provider.getTransactionCount(
       multisigAddress
     )}`
   );
+  
+  await( await wallet.sendTransaction({
+    to: multisigAddress,
+    value: ethers.utils.parseEther('0.0002')
+  })).wait()
+
+  let multisigBalance = await provider.getBalance(multisigAddress);
+
+  console.log("new account balance:", multisigBalance.toString())
+
   const sentTx = await provider.sendTransaction(utils.serialize(aaTx));
   await sentTx.wait();
 
@@ -111,8 +135,8 @@ export default async function (hre: HardhatRuntimeEnvironment) {
       multisigAddress
     )}`
   );
+  
+  // multisigBalance = await provider.getBalance(multisigAddress);
 
-  multisigBalance = await provider.getBalance(multisigAddress);
-
-  console.log(`Multisig account balance is now ${multisigBalance.toString()}`);
+  // console.log(`Multisig account balance is now ${multisigBalance.toString()}`);
 }
